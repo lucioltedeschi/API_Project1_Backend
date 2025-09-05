@@ -44,8 +44,8 @@ public class User implements UserDetails {
 
     private String lastName;
 
-    @OneToMany(mappedBy = "user")
-    private List<Order> orders;
+    //@OneToMany(mappedBy = "user")
+    //private List<Order> orders;
 
     @Enumerated(EnumType.STRING)
     private Role role;

@@ -1,58 +1,53 @@
 package com.uade.tpo.demo.controllers.config;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.time.Instant;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.impl.security.StandardSecureDigestAlgorithms;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SecretKeyBuilder;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 
 @Service
 public class JwtService {
+
     @Value("${application.security.jwt.secretKey}")
     private String secretKey;
+
     @Value("${application.security.jwt.expiration}")
-    private long jwtExpiration;
+    private long jwtExpiration; // en milisegundos
 
-    public String generateToken(
-            UserDetails userDetails) {
-        return buildToken(userDetails, jwtExpiration);
-    }
+    // Genera un token
+    public String generateToken(UserDetails userDetails) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusMillis(jwtExpiration);
+        System.out.println("Hora actual (Instant.now()): " + Instant.now());
+        System.out.println("Expira en: " + Instant.now().plusMillis(jwtExpiration));
 
-    private String buildToken(
-            UserDetails userDetails,
-            long expiration) {
-        return Jwts
-                .builder()
-                .subject(userDetails.getUsername())
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiration))
+
+        return Jwts.builder()
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(Date.from(now))
+                .setExpiration(Date.from(expiry))
                 .signWith(getSecretKey())
                 .compact();
     }
 
+    // Valida el token
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractClaim(token, Claims::getSubject);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        final String username = extractUsername(token);
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {
-        return extractClaim(token, Claims::getExpiration).before(new Date());
+        return extractClaim(token, Claims::getExpiration).before(Date.from(Instant.now()));
     }
 
     public String extractUsername(String token) {
@@ -65,8 +60,7 @@ public class JwtService {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts
-                .parser()
+        return Jwts.parser()
                 .verifyWith(getSecretKey())
                 .build()
                 .parseSignedClaims(token)
@@ -74,7 +68,6 @@ public class JwtService {
     }
 
     private SecretKey getSecretKey() {
-        SecretKey secretKeySpec = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
-        return secretKeySpec;
+        return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 }
